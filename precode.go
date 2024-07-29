@@ -1,9 +1,9 @@
 package main
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -43,28 +43,33 @@ var tasks = map[string]Task{
 
 // Ниже напишите обработчики для каждого эндпоинта
 // ...
-func handleTasksGet(res http.ResponseWriter, req *http.Request) {
+func getTasks(res http.ResponseWriter, req *http.Request) {
 	resp, err := json.MarshalIndent(tasks, "", "    ")
 	if err != nil {
 		http.Error(res, err.Error(), http.StatusInternalServerError)
+		res.Header().Set("Content-Type", "application/json")
 		return
 	}
 	res.Header().Set("Content-Type", "application/json")
 	res.WriteHeader(http.StatusOK)
-	res.Write(resp)
-}
-func handleTasksPost(res http.ResponseWriter, req *http.Request) {
-	var task Task
-	var buf bytes.Buffer
-
-	_, err := buf.ReadFrom(req.Body)
+	_, err = res.Write(resp)
 	if err != nil {
-		http.Error(res, err.Error(), http.StatusBadRequest)
+		log.Println(err, "ошибка записи ответа")
 		return
 	}
-
-	if err = json.Unmarshal(buf.Bytes(), &task); err != nil {
+}
+func addTask(res http.ResponseWriter, req *http.Request) {
+	var task Task
+	dec := json.NewDecoder(req.Body)
+	err := dec.Decode(&task)
+	if err != nil {
 		http.Error(res, err.Error(), http.StatusBadRequest)
+		res.Header().Set("Content-Type", "application/json")
+		return
+	}
+	if _, ok := tasks[task.ID]; ok {
+		res.WriteHeader(http.StatusBadRequest)
+		res.Header().Set("Content-Type", "application/json")
 		return
 	}
 
@@ -75,44 +80,49 @@ func handleTasksPost(res http.ResponseWriter, req *http.Request) {
 
 }
 
-func handleGetTaskFromId(res http.ResponseWriter, req *http.Request) {
+func getTask(res http.ResponseWriter, req *http.Request) {
 
 	id := chi.URLParam(req, "id")
 
-	if task, ok := tasks[id]; ok {
-		resp, err := json.MarshalIndent(tasks[task.ID], "", "    ")
-		if err != nil {
-			http.Error(res, err.Error(), http.StatusBadRequest)
-			return
-		}
+	task, ok := tasks[id]
+	if !ok {
 		res.Header().Set("Content-Type", "application/json")
-		res.WriteHeader(http.StatusOK)
-		res.Write(resp)
+		res.WriteHeader(http.StatusBadRequest)
+	}
+	resp, err := json.MarshalIndent(tasks[task.ID], "", "    ")
+	if err != nil {
+		res.Header().Set("Content-Type", "application/json")
+		http.Error(res, err.Error(), http.StatusBadRequest)
 		return
 	}
-	res.WriteHeader(http.StatusBadRequest)
-
+	res.Header().Set("Content-Type", "application/json")
+	res.WriteHeader(http.StatusOK)
+	_, err = res.Write(resp)
+	if err != nil {
+		log.Println(err, "ошибка записи ответа")
+		return
+	}
 }
-func handleDeleteTask(res http.ResponseWriter, req *http.Request) {
-
+func deleteTask(res http.ResponseWriter, req *http.Request) {
 	id := chi.URLParam(req, "id")
 
-	if val, ok := tasks[id]; ok {
-		delete(tasks, val.ID)
+	val, ok := tasks[id]
+	if !ok {
 		res.Header().Set("Content-Type", "application/json")
-		res.WriteHeader(http.StatusOK)
+		res.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	res.WriteHeader(http.StatusBadRequest)
-
+	delete(tasks, val.ID)
+	res.Header().Set("Content-Type", "application/json")
+	res.WriteHeader(http.StatusOK)
 }
 
 func main() {
 	r := chi.NewRouter()
-	r.Get("/tasks", handleTasksGet)
-	r.Post("/tasks", handleTasksPost)
-	r.Get("/tasks/{id}", handleGetTaskFromId)
-	r.Delete("/tasks/{id}", handleDeleteTask)
+	r.Get("/tasks", getTasks)
+	r.Post("/tasks", addTask)
+	r.Get("/tasks/{id}", getTask)
+	r.Delete("/tasks/{id}", deleteTask)
 
 	if err := http.ListenAndServe(":8080", r); err != nil {
 		fmt.Printf("Ошибка при запуске сервера: %s", err.Error())
