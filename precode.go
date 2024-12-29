@@ -44,13 +44,13 @@ var tasks = map[string]Task{
 // Ниже напишите обработчики для каждого эндпоинта
 // ...
 func getTasks(res http.ResponseWriter, req *http.Request) {
+	res.Header().Set("Content-Type", "application/json")
 	resp, err := json.MarshalIndent(tasks, "", "    ")
 	if err != nil {
 		http.Error(res, err.Error(), http.StatusInternalServerError)
-		res.Header().Set("Content-Type", "application/json")
 		return
 	}
-	res.Header().Set("Content-Type", "application/json")
+
 	res.WriteHeader(http.StatusOK)
 	_, err = res.Write(resp)
 	if err != nil {
@@ -59,43 +59,40 @@ func getTasks(res http.ResponseWriter, req *http.Request) {
 	}
 }
 func addTask(res http.ResponseWriter, req *http.Request) {
+	res.Header().Set("Content-Type", "application/json")
+	
 	var task Task
 	dec := json.NewDecoder(req.Body)
 	err := dec.Decode(&task)
 	if err != nil {
 		http.Error(res, err.Error(), http.StatusBadRequest)
-		res.Header().Set("Content-Type", "application/json")
 		return
 	}
 	if _, ok := tasks[task.ID]; ok {
 		res.WriteHeader(http.StatusBadRequest)
-		res.Header().Set("Content-Type", "application/json")
 		return
 	}
 
 	tasks[task.ID] = task
 
-	res.Header().Set("Content-Type", "application/json")
 	res.WriteHeader(http.StatusCreated)
 
 }
 
 func getTask(res http.ResponseWriter, req *http.Request) {
+	res.Header().Set("Content-Type", "application/json")
 
 	id := chi.URLParam(req, "id")
 
 	task, ok := tasks[id]
 	if !ok {
-		res.Header().Set("Content-Type", "application/json")
 		res.WriteHeader(http.StatusBadRequest)
 	}
 	resp, err := json.MarshalIndent(tasks[task.ID], "", "    ")
 	if err != nil {
-		res.Header().Set("Content-Type", "application/json")
 		http.Error(res, err.Error(), http.StatusBadRequest)
 		return
 	}
-	res.Header().Set("Content-Type", "application/json")
 	res.WriteHeader(http.StatusOK)
 	_, err = res.Write(resp)
 	if err != nil {
@@ -104,16 +101,16 @@ func getTask(res http.ResponseWriter, req *http.Request) {
 	}
 }
 func deleteTask(res http.ResponseWriter, req *http.Request) {
+	res.Header().Set("Content-Type", "application/json")
+	
 	id := chi.URLParam(req, "id")
 
 	val, ok := tasks[id]
 	if !ok {
-		res.Header().Set("Content-Type", "application/json")
 		res.WriteHeader(http.StatusBadRequest)
 		return
 	}
 	delete(tasks, val.ID)
-	res.Header().Set("Content-Type", "application/json")
 	res.WriteHeader(http.StatusOK)
 }
 
